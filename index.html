@@ -215,19 +215,6 @@ tbody td{padding:12px 16px;font-size:16px;color:var(--text);max-width:300px;over
 <!-- SPINNER -->
 <div id="spinner-overlay"><div class="spinner"></div></div>
 
-<!-- ACCESS DENIED SCREEN -->
-<div id="access-denied" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:99;align-items:center;justify-content:center">
-  <div style="background:var(--surface);border:1px solid var(--red);border-radius:10px;padding:40px;width:min(460px,92vw);text-align:center;box-shadow:var(--shadow)">
-    <div style="font-size:40px;margin-bottom:16px">🔒</div>
-    <div style="font-family:var(--font-mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--red);margin-bottom:12px">Acceso denegado</div>
-    <p style="color:var(--text2);font-size:13px;line-height:1.7;margin-bottom:20px">
-      Esta aplicación es exclusiva para usuarios con cuenta<br>
-      <strong style="color:var(--text)">@repsol.com</strong> o <strong style="color:var(--text)">@rg.repsol.com</strong>.<br><br>
-      Si crees que deberías tener acceso, contacta con el administrador.
-    </p>
-    <div id="denied-email" style="font-family:var(--font-mono);font-size:11px;color:var(--text3)"></div>
-  </div>
-</div>
 
 <!-- MAIN APP -->
 <div class="wrap" id="main-app" style="display:none">
@@ -549,22 +536,7 @@ async function bootApp() {
     return;
   }
 
-  // Verificar acceso de dominio antes de mostrar la app
-  spin(true);
-  try {
-    const r = await api({ action: 'checkAccess' });
-    spin(false);
-    if (!r.allowed) {
-      document.getElementById('setup-screen').style.display = 'none';
-      const denied = document.getElementById('access-denied');
-      denied.style.display = 'flex';
-      // sin info de email en modo contraseña
-      return;
-    }
-  } catch(e) {
-    spin(false);
-    // Si falla la comprobación (ej: sin conexión), dejar pasar y el backend bloqueará igualmente
-  }
+  // La contraseña se verifica en cada petición al backend
 
   document.getElementById('setup-screen').style.display = 'none';
   document.getElementById('main-app').style.display = '';
@@ -1024,7 +996,6 @@ function showToast(msg, isErr=false) {
 //  BOOT
 // ═══════════════════════════════════════════════════════
 function resetSetup() {
-  document.getElementById('access-denied').style.display = 'none';
   document.getElementById('setup-screen').style.display = 'flex';
   if (cfg.name) document.getElementById('setup-name').value = cfg.name;
   document.getElementById('setup-pwd').value = '';
