@@ -222,7 +222,10 @@ tbody td{padding:12px 16px;font-size:16px;color:var(--text);max-width:300px;over
   <header>
     <div class="logo-area">
       <div>
-        <div class="badge-hdr">SAM · REPSOL</div>
+        <div style="display:inline-flex;align-items:center;gap:8px">
+          <div class="badge-hdr">SAM · REPSOL</div>
+          <button class="info-circle-btn" onclick="openInfo()" title="Información de la app">i</button>
+        </div>
         <div class="logo-title">Solicitud Alta / Modificación Materiales</div>
         <div class="logo-sub" style="display:flex;align-items:center;gap:10px;margin-top:6px">Gestión de codificaciones SAP · <span style="display:inline-flex;align-items:center;gap:8px"><span id="hdr-user" style="color:var(--accent2)"></span><span id="hdr-avatar" class="user-avatar" onclick="openProfile()" title="Cambiar perfil"></span></span></div>
       </div>
@@ -233,7 +236,6 @@ tbody td{padding:12px 16px;font-size:16px;color:var(--text);max-width:300px;over
         <div class="stat-pill"><div class="val" id="st-pdte" style="color:var(--yellow)">—</div><div class="lbl">Pendiente</div></div>
         <div class="stat-pill"><div class="val" id="st-done" style="color:var(--green)">—</div><div class="lbl">Realizado</div></div>
       </div>
-      <button class="info-btn" onclick="openInfo()" title="Información de la app">i</button>
     </div>
   </header>
 
