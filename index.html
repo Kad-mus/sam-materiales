@@ -52,7 +52,7 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
 .stat-pill{display:flex;flex-direction:column;align-items:flex-end}
 .stat-pill .val{font-family:var(--font-mono);font-size:20px;font-weight:600;color:var(--accent2);line-height:1}
 .stat-pill .lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em}
-.user-dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--bg);cursor:pointer;flex-shrink:0}
+.user-avatar{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.15);cursor:pointer;flex-shrink:0;font-family:var(--font-mono);font-size:12px;font-weight:700;color:#000;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.3)}.user-avatar:hover{transform:scale(1.1);border-color:rgba(255,255,255,.4)}
 
 /* TABS */
 .tabs{display:flex;gap:4px;margin-bottom:16px}
@@ -224,7 +224,7 @@ tbody td{padding:12px 16px;font-size:16px;color:var(--text);max-width:300px;over
       <div>
         <div class="badge-hdr">SAM · REPSOL</div>
         <div class="logo-title">Solicitud Alta / Modificación Materiales</div>
-        <div class="logo-sub">Gestión de codificaciones SAP · <span id="hdr-user" style="color:var(--accent2)"></span></div>
+        <div class="logo-sub" style="display:flex;align-items:center;gap:10px;margin-top:6px">Gestión de codificaciones SAP · <span style="display:inline-flex;align-items:center;gap:8px"><span id="hdr-user" style="color:var(--accent2)"></span><span id="hdr-avatar" class="user-avatar" onclick="openProfile()" title="Cambiar perfil"></span></span></div>
       </div>
     </div>
     <div class="header-right">
@@ -233,7 +233,7 @@ tbody td{padding:12px 16px;font-size:16px;color:var(--text);max-width:300px;over
         <div class="stat-pill"><div class="val" id="st-pdte" style="color:var(--yellow)">—</div><div class="lbl">Pendiente</div></div>
         <div class="stat-pill"><div class="val" id="st-done" style="color:var(--green)">—</div><div class="lbl">Realizado</div></div>
       </div>
-      <div id="hdr-dot" class="user-dot" title="Cambiar perfil" onclick="openProfile()"></div>
+      <button class="info-btn" onclick="openInfo()" title="Información de la app">i</button>
     </div>
   </header>
 
@@ -414,14 +414,42 @@ tbody td{padding:12px 16px;font-size:16px;color:var(--text);max-width:300px;over
 
   <!-- ── BACKUPS ── -->
   <div id="view-backup" style="display:none">
-    <div class="panel">
-      <div class="panel-title">Gestión de Backups</div>
-      <p style="font-size:12px;color:var(--text2);margin-bottom:20px">Los backups se guardan como pestañas adicionales en el Google Sheet.</p>
-      <button class="btn btn-primary" onclick="doBackup()">Crear backup ahora</button>
-      <hr class="section-sep">
-      <div class="panel-title" style="margin-bottom:14px">Backups disponibles</div>
-      <div class="backup-list" id="backup-list">
-        <div style="color:var(--text3);font-family:var(--font-mono);font-size:12px">Cargando…</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+      <!-- CREAR BACKUP -->
+      <div class="panel">
+        <div class="panel-title">💾 Crear Backup</div>
+        <p style="font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.7">
+          Guarda una copia de seguridad del estado actual de todas las solicitudes.<br>
+          Los backups se almacenan como pestañas adicionales en el Google Sheet.
+        </p>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:14px;font-size:14px" onclick="doBackup()">
+          💾 Crear backup ahora
+        </button>
+        <div id="backup-status" style="margin-top:12px;font-family:var(--font-mono);font-size:12px;color:var(--text3);text-align:center"></div>
+      </div>
+
+      <!-- EXPORTAR -->
+      <div class="panel">
+        <div class="panel-title">📥 Exportar Datos</div>
+        <p style="font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.7">
+          Exporta las solicitudes a un archivo Excel con el formato visual de la app — colores, estados y todos los campos.
+        </p>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:14px;font-size:14px;background:var(--green);color:#000" onclick="exportExcel()">
+          📊 Exportar a Excel
+        </button>
+        <div style="margin-top:10px;font-size:12px;color:var(--text3);text-align:center">
+          También disponible en la pestaña Registro → CSV
+        </div>
+      </div>
+
+    </div>
+
+    <!-- LISTA DE BACKUPS -->
+    <div class="panel" style="margin-top:20px">
+      <div class="panel-title">📂 Backups disponibles</div>
+      <div id="backup-list">
+        <div style="color:var(--text3);font-family:var(--font-mono);font-size:13px;text-align:center;padding:30px">Cargando…</div>
       </div>
     </div>
   </div>
@@ -458,6 +486,43 @@ tbody td{padding:12px 16px;font-size:16px;color:var(--text);max-width:300px;over
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
       <button class="btn btn-ghost" onclick="closeProfile()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveProfile()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- INFO MODAL -->
+<div class="modal-overlay" id="modal-info" onclick="closeInfoOut(event)">
+  <div class="info-modal">
+    <div class="modal-header">
+      <h3>Información</h3>
+      <button class="btn-close" onclick="closeInfo()">×</button>
+    </div>
+    <div style="text-align:center;padding:16px 0 20px">
+      <div style="font-family:var(--font-mono);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:6px">SAM</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:4px">Solicitud Alta / Modificación Materiales</div>
+      <div style="font-family:var(--font-mono);font-size:28px;font-weight:800;color:var(--accent2);line-height:1">v1.1</div>
+    </div>
+    <div style="background:var(--surface2);border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+      <div class="info-row" style="padding:12px 16px">
+        <span class="key">Desarrollador</span>
+        <span class="val" style="font-weight:600">Rubén García</span>
+      </div>
+      <div class="info-row" style="padding:12px 16px">
+        <span class="key">Empresa</span>
+        <span class="val">Repsol</span>
+      </div>
+      <div class="info-row" style="padding:12px 16px">
+        <span class="key">Backend</span>
+        <span class="val" style="font-family:var(--font-mono);font-size:12px;color:var(--text2)">Google Apps Script + Sheets</span>
+      </div>
+      <div class="info-row" style="padding:12px 16px">
+        <span class="key">Frontend</span>
+        <span class="val" style="font-family:var(--font-mono);font-size:12px;color:var(--text2)">GitHub Pages</span>
+      </div>
+      <div class="info-row" style="padding:12px 16px;border-bottom:none">
+        <span class="key">Fecha</span>
+        <span class="val" style="font-family:var(--font-mono);font-size:12px;color:var(--text2)">Marzo 2026</span>
+      </div>
     </div>
   </div>
 </div>
@@ -541,8 +606,9 @@ async function bootApp() {
   document.getElementById('setup-screen').style.display = 'none';
   document.getElementById('main-app').style.display = '';
   document.getElementById('hdr-user').textContent = cfg.name;
-  const dot = document.getElementById('hdr-dot');
-  dot.style.background = cfg.color || USER_COLORS[0];
+  const av = document.getElementById('hdr-avatar');
+  av.style.background = cfg.color || USER_COLORS[0];
+  av.textContent = getInitials(cfg.name);
   document.getElementById('f-soli').value = cfg.name;
   await loadStats();
 }
@@ -896,26 +962,44 @@ async function loadBackups() {
     const r = await api({ action:'listBackups' });
     const el = document.getElementById('backup-list');
     if (!r.ok || !r.backups.length) {
-      el.innerHTML='<div style="color:var(--text3);font-family:var(--font-mono);font-size:12px">No hay backups todavía.</div>';
+      el.innerHTML=`<div style="text-align:center;padding:40px 20px">
+        <div style="font-size:36px;margin-bottom:12px">📭</div>
+        <div style="font-family:var(--font-mono);font-size:13px;color:var(--text3)">No hay backups todavía.<br>Crea el primero con el botón de arriba.</div>
+      </div>`;
       spin(false); return;
     }
-    el.innerHTML = r.backups.map(name => {
-      const label = name.replace('Backup_','').replace('_',' ');
-      return `<div class="backup-item">
-        <span>${label}</span>
-        <button class="btn btn-ghost btn-sm" onclick="restoreBackup('${name}')">↩ Restaurar</button>
+    el.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">` +
+    r.backups.map((name, i) => {
+      const parts = name.replace('Backup_','').split('_');
+      const fecha = parts[0] ? parts[0].replace(/(\d{4})(\d{2})(\d{2})/,'$3/$2/$1') : name;
+      const hora  = parts[1] ? parts[1].replace(/(\d{2})(\d{2})/,'$1:$2') : '';
+      const isLatest = i === 0;
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--surface2);border:1px solid ${isLatest?'var(--accent)':'var(--border)'};border-radius:8px;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:24px">💾</div>
+          <div>
+            <div style="font-family:var(--font-mono);font-size:14px;font-weight:600;color:${isLatest?'var(--accent2)':'var(--text)'}">${fecha} ${hora}</div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--text3);margin-top:2px">${isLatest?'🟢 Más reciente':'Backup #'+(r.backups.length - i)}</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="restoreBackup('${name}')">↩ Restaurar este backup</button>
       </div>`;
-    }).join('');
+    }).join('') + `</div>`;
   } catch(e) { showToast('Error al listar backups', true); }
   spin(false);
 }
 
 async function doBackup() {
   spin(true);
+  const st = document.getElementById('backup-status');
+  if (st) st.textContent = 'Creando backup…';
   try {
     const r = await api({ action:'backup' });
-    if (r.ok) { showToast('✓ Backup creado: '+r.name); await loadBackups(); }
-    else showToast('Error: '+(r.error||''), true);
+    if (r.ok) {
+      showToast('✓ Backup creado correctamente');
+      if (st) st.innerHTML = '<span style="color:var(--green)">✓ Backup creado: '+r.name+'</span>';
+      await loadBackups();
+    } else showToast('Error: '+(r.error||''), true);
   } catch(e) { showToast('Error de conexión', true); }
   spin(false);
 }
@@ -953,7 +1037,9 @@ function saveProfile() {
   if (pwd) cfg.pwd = pwd;
   saveCfgLocal();
   document.getElementById('hdr-user').textContent = name;
-  document.getElementById('hdr-dot').style.background = cfg.color||USER_COLORS[0];
+  const av2 = document.getElementById('hdr-avatar');
+  av2.style.background = cfg.color||USER_COLORS[0];
+  av2.textContent = getInitials(name);
   document.getElementById('f-soli').value = name;
   closeProfile();
   showToast('✓ Perfil guardado');
@@ -962,6 +1048,65 @@ function saveProfile() {
 // ═══════════════════════════════════════════════════════
 //  EXPORT CSV
 // ═══════════════════════════════════════════════════════
+function exportExcel() {
+  if (!allRows.length) { showToast('No hay datos para exportar', true); return; }
+
+  // Build HTML table with styling that Excel can open directly
+  const statusColor = s => s==='REALIZADO'?'#22c55e':s==='EN ESPERA DE APROBACION'?'#3b82f6':'#fbbf24';
+  const prioColor   = p => p==='Urgente'?'#ef4444':'#64748b';
+
+  const headers = ['#','Fecha','Descripción','Equipos/TAG','Área','Especialidad','Prioridad','Precio €','Rep.Fab','Reparable','Reserva','Conjunto','Consumo','Coincidencia','Solicitante','Correo','Notas','Estado'];
+
+  const rows = allRows.map((r,i) => `<tr>
+    <td style="text-align:center;font-weight:600">${r.id}</td>
+    <td style="font-family:Courier New;font-size:11px">${r.fecha||''}</td>
+    <td style="max-width:300px">${r.descripcion||''}</td>
+    <td>${r.equipo||''}</td>
+    <td style="text-align:center;font-weight:700;color:#3b82f6">${r.area||''}</td>
+    <td style="text-align:center">${r.especialidad||''}</td>
+    <td style="text-align:center;font-weight:700;color:${prioColor(r.prioridad)}">${r.prioridad||''}</td>
+    <td style="text-align:right;font-family:Courier New">${r.precio||''}</td>
+    <td style="text-align:center">${r.fabricante||''}</td>
+    <td style="text-align:center">${r.reparable||''}</td>
+    <td style="text-align:center">${r.reserva||''}</td>
+    <td style="text-align:center">${r.conjunto||''}</td>
+    <td style="text-align:center">${r.consumo||''}</td>
+    <td style="text-align:center">${r.coincidencia||''}</td>
+    <td style="font-weight:500">${r.solicitante||''}</td>
+    <td style="text-align:center">${r.correo||''}</td>
+    <td style="font-size:11px">${r.notas||''}</td>
+    <td style="text-align:center;font-weight:700;color:${statusColor(r.estado)}">${r.estado||''}</td>
+  </tr>`).join('');
+
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+  <head><meta charset="UTF-8">
+  <style>
+    body{font-family:Segoe UI,Arial,sans-serif;font-size:12px}
+    table{border-collapse:collapse;width:100%}
+    th{background:#1e2336;color:#d97706;padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;border:1px solid #2a3050}
+    td{padding:8px 12px;border:1px solid #e2e8f0;vertical-align:top}
+    tr:nth-child(even) td{background:#f8fafc}
+    tr:hover td{background:#fef9c3}
+    .title{font-size:18px;font-weight:700;color:#1e293b;margin-bottom:4px}
+    .subtitle{font-size:12px;color:#64748b;margin-bottom:16px}
+  </style></head>
+  <body>
+  <div class="title">SAM · Solicitud Alta / Modificación Materiales</div>
+  <div class="subtitle">Exportado el ${new Date().toLocaleDateString('es-ES')} · ${allRows.length} registros · Repsol TAM4</div>
+  <table>
+    <thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  </body></html>`;
+
+  const blob = new Blob([html], {type:'application/vnd.ms-excel;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `SAM_solicitudes_${new Date().toISOString().slice(0,10)}.xls`;
+  a.click();
+  showToast('✓ Excel exportado con formato visual');
+}
+
 function exportCSV() {
   if (!tableData.length) { showToast('No hay datos para exportar', true); return; }
   const cols = ['ID','Fecha','Descripción','Equipos','Área','Especialidad','Prioridad','Precio €','Rep.Fab','Reparable','Reserva','Conjunto','Consumo','Coincidencia','Solicitante','Correo','Notas','Estado'];
@@ -990,6 +1135,29 @@ function showToast(msg, isErr=false) {
   el.className = 'show' + (isErr ? ' err' : '');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.className='', 3500);
+}
+
+// ═══════════════════════════════════════════════════════
+//  INFO MODAL
+// ═══════════════════════════════════════════════════════
+function openInfo() {
+  document.getElementById('modal-info').classList.add('open');
+}
+function closeInfo() {
+  document.getElementById('modal-info').classList.remove('open');
+}
+function closeInfoOut(e) {
+  if (e.target === document.getElementById('modal-info')) closeInfo();
+}
+
+// ═══════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════
+function getInitials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/[\s.]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0,2).toUpperCase();
 }
 
 // ═══════════════════════════════════════════════════════
