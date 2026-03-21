@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SAM · Solicitud Alta Materiales</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"></noscript>
 <style>
 :root {
   --bg:#0f1117; --surface:#181c27; --surface2:#1e2336; --surface3:#242840;
@@ -453,7 +454,7 @@ input, select, textarea {
       <div class="panel-title">Registro de Solicitudes</div>
       <div class="toolbar">
         <div class="filters">
-          <input type="text" id="fl-txt" placeholder="Buscar descripción…" oninput="reloadTable()">
+          <input type="text" id="fl-txt" placeholder="Buscar descripción…" oninput="debounceFilter()">
           <select id="fl-area" onchange="reloadTable()">
             <option value="">Todas las áreas</option>
             <option>ACN</option><option>BUT</option><option>CG1</option><option>CG2</option>
@@ -664,6 +665,7 @@ async function fetchVersion() {
 }
 
 const CFG_KEY = 'cam_solicitudes_cfg';
+let isLoading = false; // flag para evitar peticiones concurrentes
 let cfg = {};
 let currentPage = 1;
 const PAGE_SIZE = 25;
@@ -754,6 +756,7 @@ async function api(payload) {
 
 function spin(on) {
   document.getElementById('spinner-overlay').classList.toggle('on', on);
+  if (!on) isLoading = false; // siempre resetear al quitar el spinner
 }
 
 // ═══════════════════════════════════════════════════════
@@ -814,6 +817,7 @@ function resetForm() {
 }
 
 async function submitForm() {
+  if (isLoading) return;
   const desc = document.getElementById('f-desc').value.trim();
   const area = document.getElementById('f-area').value;
   const esp  = document.getElementById('f-esp').value;
@@ -850,7 +854,7 @@ async function submitForm() {
     if (r.ok) {
       showToast('✓ Solicitud registrada · ID #' + r.id);
       resetForm();
-      await loadStats();
+      allRows = []; await loadStats(); await reloadTable(true);
     } else {
       showToast('Error: ' + (r.error||'desconocido'), true);
     }
@@ -861,24 +865,70 @@ async function submitForm() {
 // ═══════════════════════════════════════════════════════
 //  TABLE
 // ═══════════════════════════════════════════════════════
-async function reloadTable() {
+let allRows = [];       // cache local de todos los registros
+let debounceTimer = null;
+
+// Debounce para el campo de texto — espera 300ms tras dejar de escribir
+function debounceFilter() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => { currentPage = 1; filterLocal(); }, 300);
+}
+
+// Filtrado y paginación LOCAL (sin llamar al servidor)
+function filterLocal() {
+  if (!allRows.length) return;
+  currentPage = 1;
+  renderFiltered();
+}
+
+function renderFiltered() {
+  const txt   = (document.getElementById('fl-txt').value || '').toLowerCase();
+  const area  = document.getElementById('fl-area').value;
+  const est   = document.getElementById('fl-est').value;
+  const prio  = document.getElementById('fl-prio').value;
+
+  let filtered = allRows.filter(r => {
+    if (txt  && !(r.descripcion||'').toLowerCase().includes(txt)) return false;
+    if (area && r.area !== area) return false;
+    if (est  && r.estado !== est) return false;
+    if (prio && r.prioridad !== prio) return false;
+    return true;
+  });
+
+  const total  = filtered.length;
+  const start  = (currentPage - 1) * PAGE_SIZE;
+  tableData    = filtered.slice(start, start + PAGE_SIZE);
+
+  const stats = {
+    total:     allRows.length,
+    pendiente: allRows.filter(x => x.estado === 'PENDIENTE APROBACION').length,
+    realizado: allRows.filter(x => x.estado === 'REALIZADO').length,
+  };
+  setStats(stats);
+  renderTable({
+    data: tableData, total, page: currentPage,
+    pageSize: PAGE_SIZE, pages: Math.ceil(total / PAGE_SIZE), stats
+  });
+}
+
+// Recarga desde el servidor (solo cuando hay escrituras o primera carga)
+async function reloadTable(forceServer) {
+  if (isLoading) return; // evitar peticiones concurrentes
+  // Si hay cache y no se fuerza servidor, filtrar localmente
+  if (allRows.length && !forceServer) {
+    renderFiltered();
+    return;
+  }
+  isLoading = true;
   spin(true);
   try {
-    const r = await api({
-      action: 'getAll',
-      page: currentPage,
-      pageSize: PAGE_SIZE,
-      filterText:   document.getElementById('fl-txt').value,
-      filterArea:   document.getElementById('fl-area').value,
-      filterEstado: document.getElementById('fl-est').value,
-      filterPrio:   document.getElementById('fl-prio').value,
-    });
-    if (!r.ok) { showToast('Error al cargar datos', true); spin(false); return; }
-    tableData = r.data;
-    setStats(r.stats);
-    renderTable(r);
+    const r = await api({ action: 'getAll' });
+    if (!r.ok) { showToast('Error al cargar datos', true); spin(false); isLoading=false; return; }
+    allRows = r.data || [];
+    renderFiltered();
   } catch(e) { showToast('Error de conexión', true); }
   spin(false);
+  isLoading = false;
 }
 
 function renderTable(r) {
@@ -1019,6 +1069,7 @@ async function showDetail(id) {
 }
 
 async function cambiarEstado(id, nuevoEstado, label) {
+  if (isLoading) return;
   if (!confirm(`¿Cambiar el estado a "${nuevoEstado}"?`)) return;
   spin(true);
   try {
@@ -1026,20 +1077,21 @@ async function cambiarEstado(id, nuevoEstado, label) {
     if (r.ok) {
       showToast('✓ Estado actualizado');
       closeModal();
-      await reloadTable();
+      allRows = []; await reloadTable(true);
     } else showToast('Error: '+(r.error||''), true);
   } catch(e) { showToast('Error de conexión', true); }
   spin(false);
 }
 
 async function deleteRow(id, desc) {
+  if (isLoading) return;
   if (!confirm(`¿Mover a papelera?\n"${desc.slice(0,60)}…"`)) return;
   spin(true);
   try {
     const r = await api({ action:'delete', id, deletedBy: cfg.name||'' });
     if (r.ok) {
       showToast('Solicitud movida a papelera');
-      await reloadTable();
+      allRows = []; await reloadTable(true);
     } else showToast('Error: '+(r.error||''), true);
   } catch(e) { showToast('Error de conexión', true); }
   spin(false);
@@ -1084,7 +1136,7 @@ async function restoreRow(id) {
   spin(true);
   try {
     const r = await api({ action:'restore', id });
-    if (r.ok) { showToast('✓ Solicitud restaurada'); await loadTombstone(); await loadStats(); }
+    if (r.ok) { showToast('✓ Solicitud restaurada'); allRows = []; await loadTombstone(); await loadStats(); }
     else showToast('Error: '+(r.error||''), true);
   } catch(e) { showToast('Error de conexión', true); }
   spin(false);
