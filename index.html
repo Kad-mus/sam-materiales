@@ -178,6 +178,8 @@ tbody td{padding:12px 16px;font-size:16px;color:var(--text);max-width:300px;over
   header{flex-direction:column;align-items:flex-start;gap:12px}
   .filters input,.filters select{max-width:100%;flex:1 1 120px}
 }
+.info-circle-btn{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#000;font-family:var(--font-mono);font-size:14px;font-weight:900;cursor:pointer;border:none;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;flex-shrink:0;transition:all .15s;box-shadow:0 2px 8px rgba(217,119,6,.4)}
+.info-circle-btn:hover{background:var(--accent2);transform:scale(1.15);box-shadow:0 3px 12px rgba(217,119,6,.6)}
 </style>
 </head>
 <body>
@@ -502,7 +504,7 @@ tbody td{padding:12px 16px;font-size:16px;color:var(--text);max-width:300px;over
     <div style="text-align:center;padding:16px 0 20px">
       <div style="font-family:var(--font-mono);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:6px">SAM</div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:4px">Solicitud Alta / Modificación Materiales</div>
-      <div style="font-family:var(--font-mono);font-size:28px;font-weight:800;color:var(--accent2);line-height:1">v1.1</div>
+      <div id="info-version" style="font-family:var(--font-mono);font-size:28px;font-weight:800;color:var(--accent2);line-height:1"></div>
     </div>
     <div style="background:var(--surface2);border-radius:8px;overflow:hidden;border:1px solid var(--border)">
       <div class="info-row" style="padding:12px 16px">
@@ -539,6 +541,29 @@ const USER_COLORS = [
   "#d97706","#3b82f6","#22c55e","#ef4444",
   "#a855f7","#ec4899","#06b6d4","#f97316"
 ];
+
+// ── Versión automática desde GitHub ──────────────────────────────
+const GITHUB_REPO = 'kad-mus/sam-materiales';
+let APP_VERSION = 'v1.1';
+
+async function fetchVersion() {
+  try {
+    const r = await fetch(
+      'https://api.github.com/repos/' + GITHUB_REPO + '/commits/main',
+      { headers: { Accept: 'application/vnd.github.v3+json' } }
+    );
+    if (!r.ok) return;
+    const data = await r.json();
+    const dateStr = (data.commit && data.commit.committer && data.commit.committer.date)
+      || (data.commit && data.commit.author && data.commit.author.date);
+    if (!dateStr) return;
+    const d = new Date(dateStr);
+    const pad = n => String(n).padStart(2, '0');
+    APP_VERSION = 'v' + d.getFullYear() + '.' + pad(d.getMonth()+1) + '.' + pad(d.getDate());
+    const el = document.getElementById('info-version');
+    if (el) el.textContent = APP_VERSION;
+  } catch(e) { /* mantiene fallback */ }
+}
 
 const CFG_KEY = 'cam_solicitudes_cfg';
 let cfg = {};
@@ -1143,6 +1168,7 @@ function showToast(msg, isErr=false) {
 //  INFO MODAL
 // ═══════════════════════════════════════════════════════
 function openInfo() {
+  document.getElementById('info-version').textContent = APP_VERSION;
   document.getElementById('modal-info').classList.add('open');
 }
 function closeInfo() {
@@ -1172,6 +1198,7 @@ function resetSetup() {
 }
 
 loadCfg();
+fetchVersion();
 bootApp();
 </script>
 </body>
