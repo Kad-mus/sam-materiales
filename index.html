@@ -180,6 +180,101 @@ tbody td{padding:12px 16px;font-size:16px;color:var(--text);max-width:300px;over
 }
 .info-circle-btn{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#000;font-family:var(--font-mono);font-size:14px;font-weight:900;cursor:pointer;border:none;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;flex-shrink:0;transition:all .15s;box-shadow:0 2px 8px rgba(217,119,6,.4)}
 .info-circle-btn:hover{background:var(--accent2);transform:scale(1.15);box-shadow:0 3px 12px rgba(217,119,6,.6)}
+/* ── ANIMACIONES Y TRANSICIONES SUAVES ─────────────────── */
+
+/* Fade in general para elementos que aparecen */
+@keyframes fadeIn {
+  from { opacity:0; transform:translateY(8px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+@keyframes fadeInScale {
+  from { opacity:0; transform:scale(.96); }
+  to   { opacity:1; transform:scale(1); }
+}
+@keyframes slideInLeft {
+  from { opacity:0; transform:translateX(-16px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+@keyframes popIn {
+  0%   { opacity:0; transform:scale(.85); }
+  70%  { transform:scale(1.03); }
+  100% { opacity:1; transform:scale(1); }
+}
+@keyframes shimmer {
+  0%   { background-position:-400px 0; }
+  100% { background-position:400px 0; }
+}
+
+/* Panel — aparece con fade */
+.panel { animation: fadeInScale .25s ease both; }
+
+/* Tabs — transición de color más suave */
+.tab { transition: all .2s cubic-bezier(.4,0,.2,1); }
+.tab.active { transform: translateY(-1px); }
+
+/* Filas de la tabla */
+tbody tr { transition: background .15s ease, transform .1s ease; }
+tbody tr:hover { transform: translateX(2px); }
+
+/* Botones — rebote suave */
+.btn { transition: all .18s cubic-bezier(.4,0,.2,1); }
+.btn:active { transform: scale(.97) !important; }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(217,119,6,.4); }
+.btn-ghost:hover { transform: translateY(-1px); }
+.btn-green:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(34,197,94,.3); }
+.btn-danger:hover { transform: translateY(-1px); }
+
+/* Modal — entrada con escala suave */
+.modal-overlay { transition: opacity .2s ease; opacity:0; pointer-events:none; }
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal-overlay.open .modal,
+.modal-overlay.open .info-modal { animation: popIn .25s cubic-bezier(.34,1.56,.64,1) both; }
+
+/* Spinner fade in */
+#spinner-overlay { transition: opacity .15s ease; }
+
+/* Badges — transición de color */
+.badge { transition: all .15s ease; }
+
+/* Radio buttons */
+.rbtn { transition: all .18s cubic-bezier(.4,0,.2,1); }
+.rbtn:hover { transform: translateY(-1px); }
+.rbtn.on, .rbtn.on-no { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+
+/* Input focus */
+input, select, textarea {
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+/* Setup box */
+.setup-box { animation: popIn .3s cubic-bezier(.34,1.56,.64,1) both; }
+
+/* Avatar */
+.user-avatar { transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease; }
+.user-avatar:hover { transform: scale(1.12) !important; }
+
+/* Info circle */
+.info-circle-btn { transition: all .2s cubic-bezier(.34,1.56,.64,1); }
+.info-circle-btn:hover { transform: scale(1.18) !important; }
+
+/* Stat pills — número cambia con fade */
+.stat-pill .val { transition: color .3s ease; }
+
+/* Backup items */
+.backup-item { transition: all .15s ease; }
+
+/* Page buttons */
+.page-btn { transition: all .15s ease; }
+.page-btn:hover { transform: translateY(-1px); }
+.page-btn.active { transform: translateY(-1px); }
+
+/* Toast */
+#toast { transition: opacity .25s ease, transform .25s cubic-bezier(.34,1.56,.64,1) !important; }
+
+/* Color swatches */
+.color-swatch { transition: transform .2s cubic-bezier(.34,1.56,.64,1), border-color .15s ease; }
+
+
 </style>
 </head>
 <body>
@@ -664,9 +759,17 @@ function spin(on) {
 async function switchTab(tab, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  ['nueva','lista','tomb','backup'].forEach(v =>
-    document.getElementById('view-'+v).style.display = v===tab?'':'none'
-  );
+  const views = ['nueva','lista','tomb','backup'];
+  views.forEach(v => {
+    const el = document.getElementById('view-'+v);
+    if (v === tab) {
+      el.style.display = '';
+      el.style.animation = 'fadeInScale .22s ease both';
+    } else {
+      el.style.display = 'none';
+      el.style.animation = '';
+    }
+  });
   if (tab === 'lista')  { currentPage=1; await reloadTable(); }
   if (tab === 'tomb')   await loadTombstone();
   if (tab === 'backup') await loadBackups();
@@ -804,7 +907,7 @@ function renderTable(r) {
       : `<span class="badge badge-norm">Normal</span>`;
     const desc = (row.descripcion||'').length > 38 ? row.descripcion.slice(0,38)+'…' : (row.descripcion||'');
     const eq   = (row.equipo||'').length > 18 ? row.equipo.slice(0,18)+'…' : (row.equipo||'—');
-    return `<tr>
+    return `<tr style="animation:slideInLeft .18s ease both;animation-delay:${Math.min(i*0.03,0.3)}s">
       <td style="padding-left:10px"><span class="user-bar" style="background:${color}"></span></td>
       <td style="font-family:var(--font-mono);color:var(--text3);font-size:11px">${row.id}</td>
       <td style="font-family:var(--font-mono);font-size:11px;color:var(--text2);white-space:nowrap">${fmtFecha(row.fecha)}</td>
@@ -939,7 +1042,11 @@ async function deleteRow(id, desc) {
   spin(false);
 }
 
-function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function closeModal() {
+  const m = document.getElementById('modal');
+  m.style.opacity = '0';
+  setTimeout(() => { m.classList.remove('open'); m.style.opacity = ''; }, 180);
+}
 function closeModalOut(e) { if (e.target===document.getElementById('modal')) closeModal(); }
 
 // ═══════════════════════════════════════════════════════
@@ -1172,7 +1279,9 @@ function openInfo() {
   document.getElementById('modal-info').classList.add('open');
 }
 function closeInfo() {
-  document.getElementById('modal-info').classList.remove('open');
+  const m = document.getElementById('modal-info');
+  m.style.opacity = '0';
+  setTimeout(() => { m.classList.remove('open'); m.style.opacity = ''; }, 180);
 }
 function closeInfoOut(e) {
   if (e.target === document.getElementById('modal-info')) closeInfo();
