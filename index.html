@@ -192,7 +192,7 @@ tbody td{padding:12px 16px;font-size:16px;color:var(--text);max-width:300px;over
   to   { opacity:1; transform:scale(1); }
 }
 @keyframes slideInLeft {
-  from { opacity:0; transform:translateX(-16px); }
+  from { opacity:0; transform:translateX(-10px); }
   to   { opacity:1; transform:translateX(0); }
 }
 @keyframes popIn {
@@ -206,7 +206,7 @@ tbody td{padding:12px 16px;font-size:16px;color:var(--text);max-width:300px;over
 }
 
 /* Panel — aparece con fade */
-.panel { animation: fadeInScale .25s ease both; }
+.panel { animation: fadeInScale .12s ease both; }
 
 /* Tabs — transición de color más suave */
 .tab { transition: all .2s cubic-bezier(.4,0,.2,1); }
@@ -643,21 +643,24 @@ let APP_VERSION = 'v1.1';
 
 async function fetchVersion() {
   try {
+    // Obtener número total de commits para calcular versión incremental
+    // Empezamos en 1.6 (base) + commits desde el inicio
     const r = await fetch(
-      'https://api.github.com/repos/' + GITHUB_REPO + '/commits/main',
+      'https://api.github.com/repos/' + GITHUB_REPO + '/commits?per_page=1&sha=main',
       { headers: { Accept: 'application/vnd.github.v3+json' } }
     );
     if (!r.ok) return;
-    const data = await r.json();
-    const dateStr = (data.commit && data.commit.committer && data.commit.committer.date)
-      || (data.commit && data.commit.author && data.commit.author.date);
-    if (!dateStr) return;
-    const d = new Date(dateStr);
-    const pad = n => String(n).padStart(2, '0');
-    APP_VERSION = 'v' + d.getFullYear() + '.' + pad(d.getMonth()+1) + '.' + pad(d.getDate());
+    // El header Link contiene el total de páginas = total de commits
+    const link = r.headers.get('Link') || '';
+    const match = link.match(/page=(\d+)>; rel="last"/);
+    const totalCommits = match ? parseInt(match[1]) : 1;
+    // Base 1.6 + incremento por commit (cada commit suma 0.1)
+    const BASE = 1.6;
+    const version = (BASE + totalCommits * 0.1).toFixed(1);
+    APP_VERSION = 'v' + version;
     const el = document.getElementById('info-version');
     if (el) el.textContent = APP_VERSION;
-  } catch(e) { /* mantiene fallback */ }
+  } catch(e) { /* mantiene fallback v1.1 */ }
 }
 
 const CFG_KEY = 'cam_solicitudes_cfg';
@@ -764,7 +767,7 @@ async function switchTab(tab, el) {
     const el = document.getElementById('view-'+v);
     if (v === tab) {
       el.style.display = '';
-      el.style.animation = 'fadeInScale .22s ease both';
+      el.style.animation = 'fadeInScale .12s ease both';
     } else {
       el.style.display = 'none';
       el.style.animation = '';
@@ -907,7 +910,7 @@ function renderTable(r) {
       : `<span class="badge badge-norm">Normal</span>`;
     const desc = (row.descripcion||'').length > 38 ? row.descripcion.slice(0,38)+'…' : (row.descripcion||'');
     const eq   = (row.equipo||'').length > 18 ? row.equipo.slice(0,18)+'…' : (row.equipo||'—');
-    return `<tr style="animation:slideInLeft .18s ease both;animation-delay:${Math.min(i*0.03,0.3)}s">
+    return `<tr style="animation:slideInLeft .18s ease both;animation-delay:${Math.min(i*0.02,0.15)}s">
       <td style="padding-left:10px"><span class="user-bar" style="background:${color}"></span></td>
       <td style="font-family:var(--font-mono);color:var(--text3);font-size:11px">${row.id}</td>
       <td style="font-family:var(--font-mono);font-size:11px;color:var(--text2);white-space:nowrap">${fmtFecha(row.fecha)}</td>
@@ -1045,7 +1048,7 @@ async function deleteRow(id, desc) {
 function closeModal() {
   const m = document.getElementById('modal');
   m.style.opacity = '0';
-  setTimeout(() => { m.classList.remove('open'); m.style.opacity = ''; }, 180);
+  setTimeout(() => { m.classList.remove('open'); m.style.opacity = ''; }, 120);
 }
 function closeModalOut(e) { if (e.target===document.getElementById('modal')) closeModal(); }
 
@@ -1281,7 +1284,7 @@ function openInfo() {
 function closeInfo() {
   const m = document.getElementById('modal-info');
   m.style.opacity = '0';
-  setTimeout(() => { m.classList.remove('open'); m.style.opacity = ''; }, 180);
+  setTimeout(() => { m.classList.remove('open'); m.style.opacity = ''; }, 120);
 }
 function closeInfoOut(e) {
   if (e.target === document.getElementById('modal-info')) closeInfo();
