@@ -352,7 +352,7 @@ input, select, textarea {
 
   <div class="tabs">
     <button class="tab active" id="tab-nueva" onclick="switchTab('nueva',this)">+ Nueva Solicitud</button>
-    <button class="tab" id="tab-lista" onclick="switchTab('lista',this)">Registro</button>
+    <button class="tab" id="tab-lista" onclick="switchTab('lista',this)">Listado Solicitudes</button>
     <button class="tab" id="tab-backup" onclick="switchTab('backup',this)">Backups</button>
   </div>
 
@@ -466,7 +466,7 @@ input, select, textarea {
   <!-- ── LISTA ── -->
   <div id="view-lista" style="display:none">
     <div class="panel">
-      <div class="panel-title">Registro de Solicitudes</div>
+      <div class="panel-title">Listado de Solicitudes</div>
       <div class="toolbar">
         <div class="filters">
           <input type="text" id="fl-txt" placeholder="Buscar descripción…" oninput="debounceFilter()">
