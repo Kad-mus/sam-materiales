@@ -353,7 +353,6 @@ input, select, textarea {
   <div class="tabs">
     <button class="tab active" id="tab-nueva" onclick="switchTab('nueva',this)">+ Nueva Solicitud</button>
     <button class="tab" id="tab-lista" onclick="switchTab('lista',this)">Registro</button>
-    <button class="tab" id="tab-tomb" onclick="switchTab('tomb',this)">Papelera</button>
     <button class="tab" id="tab-backup" onclick="switchTab('backup',this)">Backups</button>
   </div>
 
@@ -510,23 +509,7 @@ input, select, textarea {
     </div>
   </div>
 
-  <!-- ── PAPELERA ── -->
-  <div id="view-tomb" style="display:none">
-    <div class="panel">
-      <div class="panel-title">Papelera (Tombstone)</div>
-      <p style="font-size:12px;color:var(--text2);margin-bottom:16px">Las solicitudes eliminadas se guardan aquí. Puedes restaurarlas en cualquier momento.</p>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th>#</th><th>Fecha</th><th>Descripción</th><th>Área</th>
-            <th>Solicitante</th><th>Eliminado</th><th>Por</th><th>Acción</th>
-          </tr></thead>
-          <tbody id="tbody-tomb"></tbody>
-        </table>
-        <div class="empty-state" id="empty-tomb" style="display:none">La papelera está vacía.</div>
-      </div>
-    </div>
-  </div>
+
 
   <!-- ── BACKUPS ── -->
   <div id="view-backup" style="display:none">
@@ -781,7 +764,7 @@ function spin(on) {
 async function switchTab(tab, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  const views = ['nueva','lista','tomb','backup'];
+  const views = ['nueva','lista','backup'];
   views.forEach(v => {
     const el = document.getElementById('view-'+v);
     if (v === tab) {
@@ -793,7 +776,6 @@ async function switchTab(tab, el) {
     }
   });
   if (tab === 'lista')  { currentPage=1; await reloadTable(); }
-  if (tab === 'tomb')   await loadTombstone();
   if (tab === 'backup') await loadBackups();
 }
 
@@ -1101,12 +1083,11 @@ async function cambiarEstado(id, nuevoEstado, label) {
 
 async function deleteRow(id, desc) {
   if (isLoading) return;
-  if (!confirm(`¿Mover a papelera?\n"${desc.slice(0,60)}…"`)) return;
   spin(true);
   try {
     const r = await api({ action:'delete', id, deletedBy: cfg.name||'' });
     if (r.ok) {
-      showToast('Solicitud movida a papelera');
+      showToast('✓ Solicitud eliminada');
       allRows = []; await reloadTable(true);
     } else showToast('Error: '+(r.error||''), true);
   } catch(e) { showToast('Error de conexión', true); }
@@ -1120,43 +1101,7 @@ function closeModal() {
 }
 function closeModalOut(e) { if (e.target===document.getElementById('modal')) closeModal(); }
 
-// ═══════════════════════════════════════════════════════
-//  TOMBSTONE
-// ═══════════════════════════════════════════════════════
-async function loadTombstone() {
-  spin(true);
-  try {
-    const r = await api({ action:'getTombstone' });
-    const tbody = document.getElementById('tbody-tomb');
-    const empty = document.getElementById('empty-tomb');
-    if (!r.ok || !r.data.length) {
-      tbody.innerHTML=''; empty.style.display=''; spin(false); return;
-    }
-    empty.style.display='none';
-    tbody.innerHTML = r.data.map(row => `<tr>
-      <td style="font-family:var(--font-mono);color:var(--text3);font-size:11px">${row.id}</td>
-      <td style="font-family:var(--font-mono);font-size:11px;color:var(--text2)">${fmtFecha(row.fecha)}</td>
-      <td title="${row.descripcion||''}">${(row.descripcion||'').slice(0,45)}${(row.descripcion||'').length>45?'…':''}</td>
-      <td><span class="badge badge-area">${row.area||'—'}</span></td>
-      <td style="font-size:12px">${row.solicitante||'—'}</td>
-      <td style="font-family:var(--font-mono);font-size:11px;color:var(--text3)">${row.deleted_at||'—'}</td>
-      <td style="font-size:12px">${row.deletedBy||'—'}</td>
-      <td><button class="btn btn-green btn-sm" onclick="restoreRow(${row.id})">↩ Restaurar</button></td>
-    </tr>`).join('');
-  } catch(e) { showToast('Error al cargar papelera', true); }
-  spin(false);
-}
 
-async function restoreRow(id) {
-  if (!confirm('¿Restaurar esta solicitud?')) return;
-  spin(true);
-  try {
-    const r = await api({ action:'restore', id });
-    if (r.ok) { showToast('✓ Solicitud restaurada'); allRows = []; await loadTombstone(); await loadStats(); }
-    else showToast('Error: '+(r.error||''), true);
-  } catch(e) { showToast('Error de conexión', true); }
-  spin(false);
-}
 
 // ═══════════════════════════════════════════════════════
 //  BACKUPS
