@@ -979,7 +979,7 @@ function renderTable(r) {
   }
   empty.style.display = 'none';
 
-  tbody.innerHTML = r.data.map(row => {
+  tbody.innerHTML = r.data.map((row, i) => {
     const color = row.color || '#64748b';
     let estBadge;
     if (row.estado === 'REALIZADO') {
