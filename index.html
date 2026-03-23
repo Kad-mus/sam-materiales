@@ -1120,7 +1120,7 @@ async function showDetail(id) {
       <div class="detail-item"><div class="key">Consumo anual estimado</div><div class="val">${row.consumo||'—'}</div></div>
       <div class="detail-item"><div class="key">Coincidencia intervenciones</div><div class="val">${row.coincidencia||'—'}</div></div>
       <div class="detail-item"><div class="key">Solicitante</div><div class="val">${row.solicitante||'—'}</div></div>
-      <div class="detail-item"><div class="key">Estado actual</div><div class="val" style="font-weight:600;color:${row.estado==='REALIZADO'?'var(--green)':row.estado==='EN ESPERA DE APROBACION'?'#60a5fa':'var(--yellow)'}">${row.estado||'—'}</div></div>
+      <div class="detail-item"><div class="key">Estado actual</div><div class="val" style="font-weight:600;color:${row.estado==='REALIZADO'?'var(--green)':row.estado==='EN ESPERA DE APROBACION'?'#60a5fa':'var(--yellow)'}">${row.estado==='PENDIENTE APROBACION'?'TRABAJO PENDIENTE':(row.estado||'—')}</div></div>
       ${row.notas ? `<div class="detail-item full"><div class="key">Notas</div><div class="val block">${row.notas}</div></div>` : ''}
     </div>`;
 
