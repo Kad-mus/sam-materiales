@@ -1405,14 +1405,14 @@ function fmtSize(bytes) {
 
 function attachItemHTML(a, solicitudId) {
   return `<div class="attach-item" id="attach-saved-${a.id}">
-    <div class="attach-item-left">
+    <div class="attach-item-left" style="flex:1;min-width:0">
       <div class="attach-item-icon">${fileIcon(a.name)}</div>
-      <a class="attach-item-name" href="${a.url}" target="_blank" title="${a.name}">${a.name}</a>
+      <a class="attach-item-name" href="${a.url}" target="_blank" title="Abrir ${a.name}"
+         style="cursor:pointer;text-decoration:none;color:var(--accent2);transition:color .15s"
+         onmouseover="this.style.color='var(--accent)';this.style.textDecoration='underline'"
+         onmouseout="this.style.color='var(--accent2)';this.style.textDecoration='none'">${a.name} ↗</a>
     </div>
-    <div style="display:flex;align-items:center;gap:6px">
-      <a href="${a.url}" target="_blank" class="btn btn-ghost btn-sm">↗ Abrir</a>
-      <button class="btn btn-danger btn-sm" onclick="deleteAttachment('${a.id}','${solicitudId}')">✕</button>
-    </div>
+    <button class="btn btn-danger btn-sm" onclick="deleteAttachment('${a.id}','${solicitudId}')">✕</button>
   </div>`;
 }
 
@@ -1548,8 +1548,25 @@ async function uploadPendingFiles(listId, solicitudId) {
         entry.el.classList.remove('uploading');
         entry.el.classList.add('done');
         setTimeout(() => {
-          entry.el.style.animation = 'fadeInScale .2s ease both';
-          entry.el.innerHTML = attachItemHTML(r.file, solicitudId);
+          // Move to the saved list (modal-attach-list-{id}) and clear pending entry
+          const savedList = document.getElementById('modal-attach-list-' + solicitudId);
+          if (savedList) {
+            // Remove "Sin documentos adjuntos" placeholder if present
+            const placeholder = savedList.querySelector('[style*="color:var(--text3)"]');
+            if (placeholder) placeholder.remove();
+            // Create new saved item
+            const newItem = document.createElement('div');
+            newItem.style.animation = 'fadeInScale .25s ease both';
+            newItem.outerHTML; // trigger reflow
+            newItem.innerHTML = attachItemHTML(r.file, solicitudId);
+            savedList.appendChild(newItem.firstElementChild || newItem);
+            // Actually just set innerHTML of a new div and append
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = attachItemHTML(r.file, solicitudId);
+            savedList.appendChild(wrapper.firstChild);
+          }
+          // Remove the upload progress entry
+          entry.el.remove();
         }, 400);
         allRows = [];
         await loadStats();
