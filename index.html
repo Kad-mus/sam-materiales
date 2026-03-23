@@ -324,23 +324,19 @@ input, select, textarea {
       <p>Introduce la URL del Google Apps Script desplegado</p>
     </div>
     <div style="display:flex;flex-direction:column;gap:16px">
-
       <div>
-        <label>Tu nombre</label>
+        <label>Tu nombre de usuario</label>
         <input id="setup-name" type="text" placeholder="">
+        <p class="setup-hint">Debe coincidir exactamente con el nombre que el administrador ha registrado.</p>
       </div>
       <div>
-        <label>Contraseña de acceso</label>
+        <label>Tu contraseña</label>
         <input id="setup-pwd" type="password" placeholder="">
-        <p class="setup-hint">Pide la contraseña al administrador si no la tienes.</p>
-      </div>
-      <div>
-        <label>Tu color identificativo</label>
-        <div class="color-picker-row" id="setup-colors"></div>
+        <p class="setup-hint">Pide tu contraseña personal al administrador.</p>
       </div>
     </div>
     <div style="margin-top:24px;display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-primary" onclick="saveSetup()">Guardar y conectar →</button>
+      <button class="btn btn-primary" onclick="saveSetup()">Entrar →</button>
     </div>
   </div>
 </div>
@@ -636,16 +632,22 @@ input, select, textarea {
       <button class="btn-close" onclick="closeProfile()">×</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:16px">
-      <div class="field"><label>Nombre</label><input id="p-name" type="text"></div>
+      <div class="field"><label>Nombre</label><input id="p-name" type="text" readonly style="opacity:.6;cursor:default"></div>
       <div class="field">
-        <label>Color identificativo</label>
-        <div class="color-picker-row" id="profile-colors"></div>
+        <label>Color asignado</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div id="p-color-dot" style="width:32px;height:32px;border-radius:50%;border:2px solid var(--border2)"></div>
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--text3)">Definido por el administrador en el Google Sheet</span>
+        </div>
       </div>
-      <div class="field"><label>Contraseña de acceso</label><input id="p-pwd" type="password" placeholder="••••••••"></div>
+      <div class="field"><label>Contraseña</label><input id="p-pwd" type="password" placeholder="Nueva contraseña (dejar vacío para no cambiar)"></div>
     </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
-      <button class="btn btn-ghost" onclick="closeProfile()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveProfile()">Guardar</button>
+    <div style="margin-top:12px;padding:10px 14px;background:var(--surface2);border-radius:6px;font-size:12px;color:var(--text3);font-family:var(--font-mono)">
+      ℹ️ El nombre y color los gestiona el administrador en el Google Sheet · Hoja "Usuarios"
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeProfile()">Cerrar</button>
+      <button class="btn btn-primary" onclick="saveProfile()">Guardar contraseña</button>
     </div>
   </div>
 </div>
@@ -742,7 +744,7 @@ function saveCfgLocal() {
 //  SETUP
 // ═══════════════════════════════════════════════════════
 function initColorPickers() {
-  ['setup-colors','profile-colors'].forEach(id => {
+  ['profile-colors'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.innerHTML = USER_COLORS.map(c =>
@@ -763,32 +765,63 @@ function selectColor(c, containerId) {
 }
 function hexToRgb(hex) { return hex; } // browsers normalize
 
-function saveSetup() {
+async function saveSetup() {
   const name = document.getElementById('setup-name').value.trim();
-  if (!name) { showToast('Rellena tu nombre', true); return; }
+  if (!name) { showToast('Introduce tu nombre de usuario', true); return; }
   const pwd  = document.getElementById('setup-pwd').value.trim();
-  if (!pwd) { showToast('Introduce la contraseña de acceso', true); return; }
-  cfg.url  = "https://script.google.com/macros/s/AKfycbwTcHVdTDPzU5pvlf87_ZtR1EU6oE4iztyNZHKO-AZLO53u8-_ry_Gz66mjDAS46aVv/exec";
+  if (!pwd)  { showToast('Introduce tu contraseña', true); return; }
+
+  cfg.url = "https://script.google.com/macros/s/AKfycbwTcHVdTDPzU5pvlf87_ZtR1EU6oE4iztyNZHKO-AZLO53u8-_ry_Gz66mjDAS46aVv/exec";
   cfg.name = name;
   cfg.pwd  = pwd;
-  if (!cfg.color) cfg.color = USER_COLORS[0];
   saveCfgLocal();
-  bootApp();
+
+  spin(true);
+  try {
+    const r = await api({ action: 'login', userName: name, password: pwd });
+    spin(false);
+    if (!r.ok) {
+      showToast(r.error || 'Acceso denegado', true);
+      return;
+    }
+    // Login OK — use name and color from server
+    cfg.name  = r.name;
+    cfg.color = r.color || USER_COLORS[0];
+    saveCfgLocal();
+    bootApp();
+  } catch(e) {
+    spin(false);
+    showToast('Error de conexión', true);
+  }
 }
 
 async function bootApp() {
   loadCfg();
-  // URL siempre fija en el código
   cfg.url = "https://script.google.com/macros/s/AKfycbwTcHVdTDPzU5pvlf87_ZtR1EU6oE4iztyNZHKO-AZLO53u8-_ry_Gz66mjDAS46aVv/exec";
   saveCfgLocal();
 
-  if (!cfg.name) {
-    initColorPickers();
-    if (cfg.name) document.getElementById('setup-name').value = cfg.name;
+  if (!cfg.name || !cfg.pwd) {
+    showSetupScreen();
     return;
   }
 
-  // La contraseña se verifica en cada petición al backend
+  // Verificar sesión al arrancar
+  spin(true);
+  try {
+    const r = await api({ action: 'login', userName: cfg.name, password: cfg.pwd });
+    spin(false);
+    if (!r.ok) {
+      showToast(r.error || 'Sesión expirada, vuelve a entrar', true);
+      showSetupScreen();
+      return;
+    }
+    // Actualizar color desde el servidor (puede haber cambiado)
+    cfg.color = r.color || cfg.color || USER_COLORS[0];
+    saveCfgLocal();
+  } catch(e) {
+    spin(false);
+    // Sin conexión — entrar con datos locales
+  }
 
   document.getElementById('setup-screen').style.display = 'none';
   document.getElementById('main-app').style.display = '';
@@ -800,12 +833,16 @@ async function bootApp() {
   await loadStats();
 }
 
+function showSetupScreen() {
+  document.getElementById('setup-screen').style.display = 'flex';
+  if (cfg.name) document.getElementById('setup-name').value = cfg.name;
+}
+
 // ═══════════════════════════════════════════════════════
 //  API
 // ═══════════════════════════════════════════════════════
 async function api(payload) {
-  // Añadir contraseña automáticamente a todas las peticiones
-  const securePayload = { ...payload, password: cfg.pwd || '' };
+  const securePayload = { ...payload, password: cfg.pwd || '', userName: cfg.name || '' };
   const res = await fetch(cfg.url, {
     method: 'POST',
     body: JSON.stringify(securePayload),
@@ -1339,29 +1376,35 @@ async function restoreBackup(name) {
 // ═══════════════════════════════════════════════════════
 function openProfile() {
   document.getElementById('p-name').value = cfg.name||'';
-  document.getElementById('p-url').value  = cfg.url||'';
   document.getElementById('p-pwd').value  = '';
-  initColorPickers();
+  const dot = document.getElementById('p-color-dot');
+  if (dot) dot.style.background = cfg.color || USER_COLORS[0];
   document.getElementById('modal-profile').classList.add('open');
 }
 function closeProfile() { document.getElementById('modal-profile').classList.remove('open'); }
 function closeProfileOut(e) { if(e.target===document.getElementById('modal-profile')) closeProfile(); }
 
-function saveProfile() {
-  const name = document.getElementById('p-name').value.trim();
-  const url  = document.getElementById('p-url').value.trim();
-  const pwd  = document.getElementById('p-pwd').value.trim();
-  if (!name) { showToast('Introduce tu nombre', true); return; }
-  cfg.name = name; cfg.url = url;
-  if (pwd) cfg.pwd = pwd;
-  saveCfgLocal();
-  document.getElementById('hdr-user').textContent = name;
-  const av2 = document.getElementById('hdr-avatar');
-  av2.style.background = cfg.color||USER_COLORS[0];
-  av2.textContent = getInitials(name);
-  document.getElementById('f-soli').value = name;
+async function saveProfile() {
+  const pwd = document.getElementById('p-pwd').value.trim();
+  if (pwd) {
+    // Verify new password works before saving
+    spin(true);
+    try {
+      const r = await api({ action:'login', userName: cfg.name, password: pwd });
+      spin(false);
+      if (!r.ok) { showToast('Contraseña incorrecta', true); return; }
+      cfg.pwd = pwd;
+      saveCfgLocal();
+      showToast('✓ Contraseña actualizada');
+    } catch(e) {
+      spin(false);
+      showToast('Error de conexión', true);
+      return;
+    }
+  } else {
+    showToast('✓ Sin cambios');
+  }
   closeProfile();
-  showToast('✓ Perfil guardado');
 }
 
 // ═══════════════════════════════════════════════════════
