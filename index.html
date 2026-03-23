@@ -280,20 +280,36 @@ input, select, textarea {
 
 
 /* ADJUNTOS */
-.attach-zone{border:2px dashed var(--border2);border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface2);position:relative}
-.attach-zone:hover,.attach-zone.dragover{border-color:var(--accent);background:var(--accent-dim)}
+.attach-zone{border:2px dashed var(--border2);border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all .25s cubic-bezier(.4,0,.2,1);background:var(--surface2);position:relative}
+.attach-zone:hover,.attach-zone.dragover{border-color:var(--accent);background:var(--accent-dim);transform:scale(1.01)}
 .attach-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
 .attach-zone-label{font-family:var(--font-mono);font-size:12px;color:var(--text3);pointer-events:none}
 .attach-zone-label span{color:var(--accent);font-weight:600}
 .attach-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-.attach-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:13px}
-.attach-item-left{display:flex;align-items:center;gap:10px;min-width:0}
-.attach-item-icon{font-size:20px;flex-shrink:0}
-.attach-item-name{font-family:var(--font-mono);font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
+.attach-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:13px;transition:all .2s ease}
+.attach-item-left{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.attach-item-icon{font-size:22px;flex-shrink:0}
+.attach-item-info{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.attach-item-name{font-family:var(--font-mono);font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.attach-item-meta{display:flex;align-items:center;gap:10px}
 .attach-item-size{font-size:11px;color:var(--text3);flex-shrink:0}
-.attach-progress{height:3px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden}
-.attach-progress-bar{height:100%;background:var(--accent);border-radius:2px;transition:width .3s ease;width:0%}
-.attach-uploading{opacity:.7}
+.attach-item-status{font-size:11px;font-family:var(--font-mono);flex-shrink:0;transition:color .3s}
+/* Progress bar */
+.attach-progress{height:4px;background:var(--border);border-radius:4px;overflow:hidden;transition:opacity .3s}
+.attach-progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;transition:width .4s cubic-bezier(.4,0,.2,1);width:0%;position:relative}
+.attach-progress-bar::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmer-bar 1.2s infinite}
+@keyframes shimmer-bar{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.attach-item.uploading .attach-item-name{color:var(--text2)}
+.attach-item.done{border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.04)}
+.attach-item.error{border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.04)}
+/* Upload overlay on spinner */
+.upload-overlay{position:fixed;bottom:80px;right:24px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:16px 20px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:250;min-width:280px;animation:slideInRight .25s cubic-bezier(.34,1.56,.64,1)}
+@keyframes slideInRight{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.upload-overlay-title{font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+.upload-overlay-file{font-family:var(--font-mono);font-size:12px;color:var(--text);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.upload-overlay-bar{height:6px;background:var(--border);border-radius:6px;overflow:hidden}
+.upload-overlay-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;transition:width .35s cubic-bezier(.4,0,.2,1);width:0%}
+.upload-overlay-pct{font-family:var(--font-mono);font-size:11px;color:var(--accent2);text-align:right;margin-top:4px}
 
 </style>
 </head>
@@ -1429,16 +1445,20 @@ function addFilesToList(files, listId) {
     pendingFiles[listId].push(entry);
 
     const div = document.createElement('div');
-    div.className = 'attach-item attach-uploading';
+    div.className = 'attach-item';
+    div.style.animation = 'fadeInScale .2s ease both';
     div.innerHTML = `
       <div class="attach-item-left">
         <div class="attach-item-icon">${fileIcon(file.name)}</div>
-        <div>
+        <div class="attach-item-info">
           <div class="attach-item-name">${file.name}</div>
-          <div class="attach-progress"><div class="attach-progress-bar" style="width:0%"></div></div>
+          <div class="attach-item-meta">
+            <span class="attach-item-size">${fmtSize(file.size)}</span>
+            <span class="attach-item-status" style="color:var(--text3)">Pendiente</span>
+          </div>
+          <div class="attach-progress" style="opacity:0"><div class="attach-progress-bar"></div></div>
         </div>
-      </div>
-      <div class="attach-item-size">${fmtSize(file.size)}</div>`;
+      </div>`;
     listEl.appendChild(div);
     entry.el = div;
   });
@@ -1450,15 +1470,68 @@ function addFilesToList(files, listId) {
   }
 }
 
+function showUploadOverlay(fileName, pct) {
+  let ov = document.getElementById('upload-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'upload-overlay';
+    ov.className = 'upload-overlay';
+    ov.innerHTML = `
+      <div class="upload-overlay-title">📎 Subiendo documento…</div>
+      <div class="upload-overlay-file" id="uov-name"></div>
+      <div class="upload-overlay-bar"><div class="upload-overlay-fill" id="uov-fill"></div></div>
+      <div class="upload-overlay-pct" id="uov-pct">0%</div>`;
+    document.body.appendChild(ov);
+  }
+  document.getElementById('uov-name').textContent = fileName;
+  document.getElementById('uov-fill').style.width = pct + '%';
+  document.getElementById('uov-pct').textContent = Math.round(pct) + '%';
+}
+
+function hideUploadOverlay() {
+  const ov = document.getElementById('upload-overlay');
+  if (ov) {
+    ov.style.opacity = '0';
+    ov.style.transform = 'translateX(20px)';
+    ov.style.transition = 'all .3s ease';
+    setTimeout(() => ov.remove(), 300);
+  }
+}
+
+function setEntryProgress(entry, pct, statusText, statusColor) {
+  const bar = entry.el.querySelector('.attach-progress-bar');
+  const prog = entry.el.querySelector('.attach-progress');
+  const status = entry.el.querySelector('.attach-item-status');
+  if (prog) prog.style.opacity = '1';
+  if (bar) bar.style.width = pct + '%';
+  if (status) { status.textContent = statusText; status.style.color = statusColor || 'var(--accent2)'; }
+}
+
 async function uploadPendingFiles(listId, solicitudId) {
   const entries = (pendingFiles[listId] || []).filter(e => e.status === 'pending');
   for (const entry of entries) {
     entry.status = 'uploading';
-    const bar = entry.el.querySelector('.attach-progress-bar');
-    if (bar) bar.style.width = '30%';
+    entry.el.classList.add('uploading');
+    setEntryProgress(entry, 5, 'Preparando…', 'var(--text2)');
+    showUploadOverlay(entry.file.name, 5);
+
     try {
+      // Simulate read progress
+      setEntryProgress(entry, 20, 'Leyendo archivo…', 'var(--accent2)');
+      showUploadOverlay(entry.file.name, 20);
       const b64 = await fileToBase64(entry.file);
-      if (bar) bar.style.width = '70%';
+
+      setEntryProgress(entry, 45, 'Enviando…', 'var(--accent2)');
+      showUploadOverlay(entry.file.name, 45);
+
+      // Animate to 80% while waiting for server
+      let fakeProgress = 45;
+      const fakeTimer = setInterval(() => {
+        fakeProgress = Math.min(fakeProgress + 2, 80);
+        setEntryProgress(entry, fakeProgress, 'Subiendo a Drive…', 'var(--accent2)');
+        showUploadOverlay(entry.file.name, fakeProgress);
+      }, 300);
+
       const r = await api({
         action: 'uploadFile',
         solicitudId,
@@ -1466,24 +1539,38 @@ async function uploadPendingFiles(listId, solicitudId) {
         mimeType: entry.file.type || 'application/octet-stream',
         fileData: b64,
       });
+      clearInterval(fakeTimer);
+
       if (r.ok) {
         entry.status = 'done';
-        if (bar) bar.style.width = '100%';
-        entry.el.className = 'attach-item';
-        entry.el.innerHTML = attachItemHTML(r.file, solicitudId);
-        // Refresh allRows cache
+        setEntryProgress(entry, 100, '✓ Subido', 'var(--green)');
+        showUploadOverlay(entry.file.name, 100);
+        entry.el.classList.remove('uploading');
+        entry.el.classList.add('done');
+        setTimeout(() => {
+          entry.el.style.animation = 'fadeInScale .2s ease both';
+          entry.el.innerHTML = attachItemHTML(r.file, solicitudId);
+        }, 400);
         allRows = [];
         await loadStats();
       } else {
         entry.status = 'error';
-        entry.el.innerHTML += `<div style="color:var(--red);font-size:11px">Error: ${r.error||'desconocido'}</div>`;
+        entry.el.classList.remove('uploading');
+        entry.el.classList.add('error');
+        setEntryProgress(entry, 100, '✗ Error', 'var(--red)');
       }
     } catch(e) {
       entry.status = 'error';
-      entry.el.innerHTML += `<div style="color:var(--red);font-size:11px">Error de conexión</div>`;
+      entry.el.classList.remove('uploading');
+      entry.el.classList.add('error');
+      setEntryProgress(entry, 0, '✗ Sin conexión', 'var(--red)');
     }
+
+    // Small pause between files if multiple
+    await new Promise(res => setTimeout(res, 200));
   }
-  // Clean done entries
+
+  hideUploadOverlay();
   pendingFiles[listId] = (pendingFiles[listId]||[]).filter(e => e.status !== 'done');
 }
 
