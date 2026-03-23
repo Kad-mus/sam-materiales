@@ -279,6 +279,22 @@ input, select, textarea {
 .color-swatch { transition: transform .2s cubic-bezier(.34,1.56,.64,1), border-color .15s ease; }
 
 
+/* ADJUNTOS */
+.attach-zone{border:2px dashed var(--border2);border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface2);position:relative}
+.attach-zone:hover,.attach-zone.dragover{border-color:var(--accent);background:var(--accent-dim)}
+.attach-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.attach-zone-label{font-family:var(--font-mono);font-size:12px;color:var(--text3);pointer-events:none}
+.attach-zone-label span{color:var(--accent);font-weight:600}
+.attach-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.attach-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:13px}
+.attach-item-left{display:flex;align-items:center;gap:10px;min-width:0}
+.attach-item-icon{font-size:20px;flex-shrink:0}
+.attach-item-name{font-family:var(--font-mono);font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
+.attach-item-size{font-size:11px;color:var(--text3);flex-shrink:0}
+.attach-progress{height:3px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden}
+.attach-progress-bar{height:100%;background:var(--accent);border-radius:2px;transition:width .3s ease;width:0%}
+.attach-uploading{opacity:.7}
+
 </style>
 </head>
 <body>
@@ -456,6 +472,16 @@ input, select, textarea {
           <textarea id="f-notas" rows="2" placeholder=""></textarea>
         </div>
       </div>
+      <!-- ADJUNTOS EN FORMULARIO -->
+      <div class="field full" style="margin-top:8px">
+        <label>Documentos adjuntos <span class="hint">(opcional · se suben tras registrar)</span></label>
+        <div class="attach-zone" id="form-attach-zone" ondragover="attachDragOver(event,'form-attach-zone')" ondragleave="attachDragLeave('form-attach-zone')" ondrop="attachDrop(event,'form-pending')">
+          <input type="file" multiple id="form-file-input" onchange="attachSelected(this,'form-pending')">
+          <div class="attach-zone-label">📎 Arrastra archivos aquí o <span>haz clic para seleccionar</span></div>
+        </div>
+        <div class="attach-list" id="form-pending-list"></div>
+      </div>
+
       <div class="form-actions">
         <button class="btn btn-ghost" onclick="resetForm()">Limpiar</button>
         <button class="btn btn-primary" onclick="submitForm()">Registrar Solicitud →</button>
@@ -639,7 +665,7 @@ const USER_COLORS = [
 
 // ── Versión automática desde GitHub ──────────────────────────────
 const GITHUB_REPO = 'kad-mus/sam-materiales';
-let APP_VERSION = 'v1.1';
+let APP_VERSION = 'v1.3';
 
 async function fetchVersion() {
   try {
@@ -812,6 +838,8 @@ function resetForm() {
   ['hf-prio','hf-fab','hf-rep','hf-res','hf-cor'].forEach(id => document.getElementById(id).value='');
   document.querySelectorAll('.rbtn').forEach(b => b.classList.remove('on','on-no'));
   document.getElementById('f-soli').value = cfg.name || '';
+  document.getElementById('form-pending-list').innerHTML = '';
+  pendingFiles['form-pending'] = [];
 }
 
 async function submitForm() {
@@ -850,8 +878,16 @@ async function submitForm() {
   try {
     const r = await api(payload);
     if (r.ok) {
-      showToast('✓ Solicitud registrada · ID #' + r.id);
+      const newId = r.id;
+      showToast('✓ Solicitud registrada · ID #' + newId);
+      // Upload any pending attachments
+      if (pendingFiles['form-pending'] && pendingFiles['form-pending'].length) {
+        showToast('📎 Subiendo documentos adjuntos…');
+        await uploadFormAttachments(newId);
+      }
       resetForm();
+      document.getElementById('form-pending-list').innerHTML = '';
+      pendingFiles['form-pending'] = [];
       allRows = []; await loadStats(); await reloadTable(true);
     } else {
       showToast('Error: ' + (r.error||'desconocido'), true);
@@ -1063,6 +1099,21 @@ async function showDetail(id) {
   }
   document.getElementById('modal-actions').innerHTML = actionButtons;
 
+  // Adjuntos section
+  const adjArr = parseAdjuntos(row.adjuntos);
+  document.getElementById('modal-body').innerHTML += `
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <div style="font-family:var(--font-mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:10px">📎 Documentos adjuntos</div>
+      <div class="attach-list" id="modal-attach-list-${row.id}">
+        ${adjArr.length ? adjArr.map(a => attachItemHTML(a, row.id)).join('') : '<div style="color:var(--text3);font-family:var(--font-mono);font-size:12px">Sin documentos adjuntos</div>'}
+      </div>
+      <div class="attach-zone" style="margin-top:10px" ondragover="attachDragOver(event,'modal-attach-zone')" ondragleave="attachDragLeave('modal-attach-zone')" ondrop="attachDrop(event,'modal-upload-${row.id}')">
+        <input type="file" multiple id="modal-file-input-${row.id}" onchange="attachSelected(this,'modal-upload-${row.id}')">
+        <div class="attach-zone-label">📎 Arrastra archivos aquí o <span>haz clic para añadir</span></div>
+      </div>
+      <div class="attach-list" id="modal-upload-${row.id}-list" data-solicitud="${row.id}"></div>
+    </div>`;
+
   document.getElementById('modal').classList.add('open');
 }
 
@@ -1212,6 +1263,162 @@ function formatPrecio(input) {
   // Formatear parte entera con puntos de miles
   intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   input.value = decPart !== '' ? intPart + ',' + decPart : intPart;
+}
+
+// ═══════════════════════════════════════════════════════
+//  ADJUNTOS — Google Drive
+// ═══════════════════════════════════════════════════════
+
+// Pending files: { listId -> [{file, status:'pending'|'uploading'|'done'|'error', itemEl}] }
+const pendingFiles = {};
+
+function parseAdjuntos(raw) {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch(e) { return []; }
+}
+
+function fileIcon(name) {
+  const ext = (name||'').split('.').pop().toLowerCase();
+  const icons = { pdf:'📄', doc:'📝', docx:'📝', xls:'📊', xlsx:'📊',
+    ppt:'📊', pptx:'📊', jpg:'🖼', jpeg:'🖼', png:'🖼', gif:'🖼',
+    mp4:'🎥', zip:'🗜', rar:'🗜', txt:'📃' };
+  return icons[ext] || '📎';
+}
+
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/(1024*1024)).toFixed(1) + ' MB';
+}
+
+function attachItemHTML(a, solicitudId) {
+  return `<div class="attach-item" id="attach-saved-${a.id}">
+    <div class="attach-item-left">
+      <div class="attach-item-icon">${fileIcon(a.name)}</div>
+      <a class="attach-item-name" href="${a.url}" target="_blank" title="${a.name}">${a.name}</a>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <a href="${a.url}" target="_blank" class="btn btn-ghost btn-sm">↗ Abrir</a>
+      <button class="btn btn-danger btn-sm" onclick="deleteAttachment('${a.id}','${solicitudId}')">✕</button>
+    </div>
+  </div>`;
+}
+
+function attachDragOver(e, zoneId) {
+  e.preventDefault();
+  document.getElementById(zoneId).classList.add('dragover');
+}
+function attachDragLeave(zoneId) {
+  document.getElementById(zoneId).classList.remove('dragover');
+}
+function attachDrop(e, listId) {
+  e.preventDefault();
+  const zoneId = e.currentTarget.id;
+  document.getElementById(zoneId).classList.remove('dragover');
+  const files = Array.from(e.dataTransfer.files);
+  addFilesToList(files, listId);
+}
+function attachSelected(input, listId) {
+  const files = Array.from(input.files);
+  addFilesToList(files, listId);
+  input.value = '';
+}
+
+function addFilesToList(files, listId) {
+  if (!pendingFiles[listId]) pendingFiles[listId] = [];
+  const listEl = document.getElementById(listId + '-list');
+
+  files.forEach(file => {
+    const entry = { file, status: 'pending' };
+    pendingFiles[listId].push(entry);
+
+    const div = document.createElement('div');
+    div.className = 'attach-item attach-uploading';
+    div.innerHTML = `
+      <div class="attach-item-left">
+        <div class="attach-item-icon">${fileIcon(file.name)}</div>
+        <div>
+          <div class="attach-item-name">${file.name}</div>
+          <div class="attach-progress"><div class="attach-progress-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="attach-item-size">${fmtSize(file.size)}</div>`;
+    listEl.appendChild(div);
+    entry.el = div;
+  });
+
+  // If listId starts with 'modal-upload-' we upload immediately
+  if (listId.startsWith('modal-upload-')) {
+    const solicitudId = listId.replace('modal-upload-', '');
+    uploadPendingFiles(listId, solicitudId);
+  }
+}
+
+async function uploadPendingFiles(listId, solicitudId) {
+  const entries = (pendingFiles[listId] || []).filter(e => e.status === 'pending');
+  for (const entry of entries) {
+    entry.status = 'uploading';
+    const bar = entry.el.querySelector('.attach-progress-bar');
+    if (bar) bar.style.width = '30%';
+    try {
+      const b64 = await fileToBase64(entry.file);
+      if (bar) bar.style.width = '70%';
+      const r = await api({
+        action: 'uploadFile',
+        solicitudId,
+        fileName: entry.file.name,
+        mimeType: entry.file.type || 'application/octet-stream',
+        fileData: b64,
+      });
+      if (r.ok) {
+        entry.status = 'done';
+        if (bar) bar.style.width = '100%';
+        entry.el.className = 'attach-item';
+        entry.el.innerHTML = attachItemHTML(r.file, solicitudId);
+        // Refresh allRows cache
+        allRows = [];
+        await loadStats();
+      } else {
+        entry.status = 'error';
+        entry.el.innerHTML += `<div style="color:var(--red);font-size:11px">Error: ${r.error||'desconocido'}</div>`;
+      }
+    } catch(e) {
+      entry.status = 'error';
+      entry.el.innerHTML += `<div style="color:var(--red);font-size:11px">Error de conexión</div>`;
+    }
+  }
+  // Clean done entries
+  pendingFiles[listId] = (pendingFiles[listId]||[]).filter(e => e.status !== 'done');
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadFormAttachments(solicitudId) {
+  const listId = 'form-pending';
+  if (!pendingFiles[listId] || !pendingFiles[listId].length) return;
+  await uploadPendingFiles(listId, solicitudId);
+}
+
+async function deleteAttachment(fileId, solicitudId) {
+  if (!confirm('¿Eliminar este documento?')) return;
+  spin(true);
+  try {
+    const r = await api({ action:'deleteFile', fileId, solicitudId });
+    if (r.ok) {
+      const el = document.getElementById('attach-saved-' + fileId);
+      if (el) el.remove();
+      allRows = [];
+      showToast('✓ Documento eliminado');
+    } else showToast('Error: '+(r.error||''), true);
+  } catch(e) { showToast('Error de conexión', true); }
+  spin(false);
 }
 
 function exportExcel() {
