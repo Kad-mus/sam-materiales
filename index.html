@@ -1082,9 +1082,15 @@ function fmtFecha(f) {
 //  DETAIL MODAL
 // ═══════════════════════════════════════════════════════
 async function showDetail(id) {
-  // Buscar en tableData local primero
-  let row = tableData.find(r => r.id == id);
+  // Buscar en cache local primero para mostrar rápido
+  let row = allRows.find(r => r.id == id) || tableData.find(r => r.id == id);
   if (!row) return;
+
+  // Recargar adjuntos frescos del servidor en segundo plano
+  try {
+    const fresh = await api({ action: 'getOne', id });
+    if (fresh && fresh.ok && fresh.row) row = fresh.row;
+  } catch(e) { /* usar datos del caché */ }
 
   const yn = v => {
     if (!v) return '<span style="color:var(--text3)">—</span>';
