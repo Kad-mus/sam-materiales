@@ -539,44 +539,63 @@ input, select, textarea {
 
   <!-- ── BACKUPS ── -->
   <div id="view-backup" style="display:none">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
 
-      <!-- CREAR BACKUP -->
-      <div class="panel">
-        <div class="panel-title">💾 Crear Backup</div>
-        <p style="font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.7">
-          Guarda una copia de seguridad del estado actual de todas las solicitudes.<br>
-          Los backups se almacenan como pestañas adicionales en el Google Sheet.
+    <!-- FILA SUPERIOR: 3 acciones alineadas -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;align-items:stretch">
+
+      <!-- BACKUP LOCAL -->
+      <div class="panel" style="display:flex;flex-direction:column">
+        <div class="panel-title">💾 Backup local</div>
+        <p style="font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.7;flex:1">
+          Descarga una copia de seguridad en tu disco duro como archivo JSON con todos los datos actuales.
         </p>
-        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:14px;font-size:14px" onclick="doBackup()">
-          💾 Crear backup ahora
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:14px;font-size:14px" onclick="doBackupLocal()">
+          💾 Descargar backup
         </button>
-        <div id="backup-status" style="margin-top:12px;font-family:var(--font-mono);font-size:12px;color:var(--text3);text-align:center"></div>
+        <div id="backup-status" style="margin-top:10px;font-family:var(--font-mono);font-size:11px;color:var(--text3);text-align:center;min-height:18px"></div>
       </div>
 
-      <!-- EXPORTAR -->
-      <div class="panel">
-        <div class="panel-title">📥 Exportar Datos</div>
-        <p style="font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.7">
-          Exporta las solicitudes a un archivo Excel con el formato visual de la app — colores, estados y todos los campos.
+      <!-- RESTAURAR BACKUP LOCAL -->
+      <div class="panel" style="display:flex;flex-direction:column">
+        <div class="panel-title">↩ Restaurar backup</div>
+        <p style="font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.7;flex:1">
+          Carga un archivo JSON de backup descargado anteriormente para restaurar el estado de las solicitudes.
+        </p>
+        <div style="position:relative">
+          <button class="btn btn-primary" style="width:100%;justify-content:center;padding:14px;font-size:14px;background:var(--blue);color:#fff" onclick="document.getElementById('restore-file-input').click()">
+            ↩ Cargar backup JSON
+          </button>
+          <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="doRestoreLocal(this)">
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text3);text-align:center;min-height:18px">Solo archivos .json generados por esta app</div>
+      </div>
+
+      <!-- EXPORTAR EXCEL -->
+      <div class="panel" style="display:flex;flex-direction:column">
+        <div class="panel-title">📊 Exportar datos</div>
+        <p style="font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.7;flex:1">
+          Exporta las solicitudes a un archivo Excel con formato visual — colores por estado y prioridad.
         </p>
         <button class="btn btn-primary" style="width:100%;justify-content:center;padding:14px;font-size:14px;background:var(--green);color:#000" onclick="exportExcel()">
           📊 Exportar a Excel
         </button>
-        <div style="margin-top:10px;font-size:12px;color:var(--text3);text-align:center">
-          También disponible en la pestaña Registro → CSV
-        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text3);text-align:center;min-height:18px">También disponible en Listado → CSV</div>
       </div>
 
     </div>
 
-    <!-- LISTA DE BACKUPS -->
+    <!-- BACKUP EN GOOGLE SHEET -->
     <div class="panel" style="margin-top:20px">
-      <div class="panel-title">📂 Backups disponibles</div>
+      <div class="panel-title">☁️ Backups en Google Sheet</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <p style="font-size:14px;color:var(--text2)">Copias almacenadas como pestañas en el Google Sheet. Puedes restaurar cualquiera desde aquí.</p>
+        <button class="btn btn-primary btn-sm" onclick="doBackupSheet()">☁️ Crear backup en Sheet</button>
+      </div>
       <div id="backup-list">
         <div style="color:var(--text3);font-family:var(--font-mono);font-size:13px;text-align:center;padding:30px">Cargando…</div>
       </div>
     </div>
+
   </div>
 
 </div><!-- wrap -->
@@ -889,6 +908,8 @@ async function submitForm() {
       document.getElementById('form-pending-list').innerHTML = '';
       pendingFiles['form-pending'] = [];
       allRows = []; await loadStats(); await reloadTable(true);
+      // Ir automáticamente al listado
+      switchTab('lista', document.getElementById('tab-lista'));
     } else {
       showToast('Error: ' + (r.error||'desconocido'), true);
     }
@@ -958,7 +979,7 @@ async function reloadTable(forceServer) {
   try {
     const r = await api({ action: 'getAll' });
     if (!r.ok) { showToast('Error al cargar datos', true); spin(false); isLoading=false; return; }
-    allRows = r.data || [];
+    allRows = (r.data || []).sort((a, b) => b.id - a.id);
     renderFiltered();
   } catch(e) { showToast('Error de conexión', true); }
   spin(false);
@@ -1190,20 +1211,95 @@ async function loadBackups() {
   spin(false);
 }
 
-async function doBackup() {
-  spin(true);
+// Backup LOCAL — descarga JSON al disco duro
+async function doBackupLocal() {
+  if (!allRows.length) {
+    // Si no hay cache, cargar primero
+    spin(true);
+    try {
+      const r = await api({ action:'getAll' });
+      if (r.ok) allRows = (r.data||[]).sort((a,b) => b.id - a.id);
+    } catch(e) {}
+    spin(false);
+  }
+  if (!allRows.length) { showToast('No hay datos para exportar', true); return; }
+
+  const backup = {
+    version: APP_VERSION,
+    fecha: new Date().toISOString(),
+    app: 'SAM · Solicitud Alta Materiales',
+    total: allRows.length,
+    data: allRows,
+  };
+
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const fecha = new Date().toISOString().slice(0,10);
+  const hora  = new Date().toTimeString().slice(0,5).replace(':','h');
+  a.download = `SAM_backup_${fecha}_${hora}.json`;
+  a.click();
+
   const st = document.getElementById('backup-status');
-  if (st) st.textContent = 'Creando backup…';
+  if (st) st.innerHTML = '<span style="color:var(--green)">✓ Backup descargado: '+allRows.length+' registros</span>';
+  showToast('✓ Backup descargado en tu disco');
+}
+
+// Restaurar backup LOCAL desde JSON
+async function doRestoreLocal(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    let backup;
+    try {
+      backup = JSON.parse(e.target.result);
+    } catch(err) {
+      showToast('❌ Archivo JSON no válido', true); return;
+    }
+
+    if (!backup.data || !Array.isArray(backup.data)) {
+      showToast('❌ El archivo no tiene el formato correcto', true); return;
+    }
+
+    const fecha = backup.fecha ? new Date(backup.fecha).toLocaleString('es-ES') : 'fecha desconocida';
+    if (!confirm(`¿Restaurar backup del ${fecha} con ${backup.data.length} registros?
+
+ATENCIÓN: Esto sobreescribirá los datos actuales en el Google Sheet.`)) return;
+
+    spin(true);
+    try {
+      const r = await api({ action:'restoreLocalBackup', data: backup.data });
+      if (r.ok) {
+        allRows = [];
+        await loadStats();
+        await reloadTable(true);
+        showToast('✓ Backup restaurado correctamente · ' + backup.data.length + ' registros');
+      } else showToast('Error: '+(r.error||''), true);
+    } catch(err) { showToast('Error de conexión', true); }
+    spin(false);
+  };
+  reader.readAsText(file);
+}
+
+// Backup en Google SHEET (existente, renombrado)
+async function doBackupSheet() {
+  spin(true);
   try {
     const r = await api({ action:'backup' });
     if (r.ok) {
-      showToast('✓ Backup creado correctamente');
-      if (st) st.innerHTML = '<span style="color:var(--green)">✓ Backup creado: '+r.name+'</span>';
+      showToast('✓ Backup creado en Google Sheet');
       await loadBackups();
     } else showToast('Error: '+(r.error||''), true);
   } catch(e) { showToast('Error de conexión', true); }
   spin(false);
 }
+
+// Alias para compatibilidad
+async function doBackup() { await doBackupSheet(); }
 
 async function restoreBackup(name) {
   if (!confirm(`¿Restaurar el backup "${name}"?\n\nSe guardará el estado actual antes de restaurar.`)) return;
