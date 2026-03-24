@@ -450,8 +450,8 @@ input, select, textarea {
         <div class="field">
           <label>Compra bajo reserva</label>
           <div class="radio-group" id="rg-res">
-            <div class="rbtn" data-val="Sí" onclick="pickR('rg-res','Sí','hf-res')">Sí</div>
-            <div class="rbtn" data-val="No" onclick="pickR('rg-res','No','hf-res')">No</div>
+            <div class="rbtn" data-val="Sí" onclick="pickR('rg-res','Sí','hf-res');toggleStockFields('Si')">Sí</div>
+            <div class="rbtn" data-val="No" onclick="pickR('rg-res','No','hf-res');toggleStockFields('No')">No</div>
           </div>
           <input type="hidden" id="hf-res">
         </div>
@@ -462,6 +462,24 @@ input, select, textarea {
         <div class="field">
           <label>Consumo anual estimado</label>
           <input id="f-consumo" type="text" placeholder="">
+        </div>
+
+        <!-- STOCK FIELDS — solo visibles cuando Compra bajo reserva = No -->
+        <div id="stock-fields" style="display:none;grid-column:1/-1;display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+            <div class="field">
+              <label>Punto de pedido <span class="req">*</span> <span class="hint">(UND)</span></label>
+              <input id="f-pp" type="number" min="0" step="1" placeholder="0" style="animation:fadeInScale .2s ease both">
+            </div>
+            <div class="field">
+              <label>Stock máximo <span class="req">*</span> <span class="hint">(UND)</span></label>
+              <input id="f-sm" type="number" min="0" step="1" placeholder="0" style="animation:fadeInScale .2s ease both">
+            </div>
+            <div class="field">
+              <label>Stock de seguridad <span class="req">*</span> <span class="hint">(UND)</span></label>
+              <input id="f-ss" type="number" min="0" step="1" placeholder="0" style="animation:fadeInScale .2s ease both">
+            </div>
+          </div>
         </div>
         <div class="field">
           <label>Coincidencia de intervenciones</label>
@@ -908,6 +926,8 @@ function resetForm() {
     .forEach(id => { const el=document.getElementById(id); el.value=''; el.classList.remove('err'); });
   ['f-area','f-esp'].forEach(id => { document.getElementById(id).value=''; document.getElementById(id).classList.remove('err'); });
   ['hf-prio','hf-fab','hf-rep','hf-res','hf-cor'].forEach(id => document.getElementById(id).value='');
+  ['f-pp','f-sm','f-ss'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('stock-fields').style.display = 'none';
   document.querySelectorAll('.rbtn').forEach(b => b.classList.remove('on','on-no'));
   document.getElementById('f-soli').value = cfg.name || '';
   document.getElementById('form-pending-list').innerHTML = '';
@@ -943,6 +963,9 @@ async function submitForm() {
     solicitante: soli,
     correo:       document.getElementById('hf-cor').value,
     notas:        document.getElementById('f-notas').value.trim(),
+    pp:           document.getElementById('f-pp').value || '',
+    sm:           document.getElementById('f-sm').value || '',
+    ss:           document.getElementById('f-ss').value || '',
     color: cfg.color || USER_COLORS[0],
   };
 
@@ -1149,6 +1172,10 @@ async function showDetail(id) {
       <div class="detail-item"><div class="key">Especialidad</div><div class="val">${row.especialidad||'—'}</div></div>
       <div class="detail-item"><div class="key">Prioridad</div><div class="val">${row.prioridad||'—'}</div></div>
       <div class="detail-item"><div class="key">Precio estimado</div><div class="val">${row.precio||'—'} €</div></div>
+      ${row.pp || row.sm || row.ss ? `
+      <div class="detail-item"><div class="key">Punto de pedido</div><div class="val">${row.pp||'—'} UND</div></div>
+      <div class="detail-item"><div class="key">Stock máximo</div><div class="val">${row.sm||'—'} UND</div></div>
+      <div class="detail-item"><div class="key">Stock de seguridad</div><div class="val">${row.ss||'—'} UND</div></div>` : ''}
       <div class="detail-item"><div class="key">Rep. específico fabricante</div><div class="val">${yn(row.fabricante)}</div></div>
       <div class="detail-item"><div class="key">Material reparable</div><div class="val">${yn(row.reparable)}</div></div>
       <div class="detail-item"><div class="key">Compra bajo reserva</div><div class="val">${yn(row.reserva)}</div></div>
@@ -1410,6 +1437,19 @@ async function saveProfile() {
 // ═══════════════════════════════════════════════════════
 //  EXPORT CSV
 // ═══════════════════════════════════════════════════════
+function toggleStockFields(val) {
+  const el = document.getElementById('stock-fields');
+  if (val === 'No') {
+    el.style.display = 'block';
+    el.style.animation = 'fadeInScale .2s ease both';
+  } else {
+    el.style.display = 'none';
+    document.getElementById('f-pp').value = '';
+    document.getElementById('f-sm').value = '';
+    document.getElementById('f-ss').value = '';
+  }
+}
+
 function formatPrecio(input) {
   // Guardar posición del cursor
   let val = input.value;
