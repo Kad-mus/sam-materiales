@@ -771,7 +771,7 @@ async function saveSetup() {
   const pwd  = document.getElementById('setup-pwd').value.trim();
   if (!pwd)  { showToast('Introduce tu contraseña', true); return; }
 
-  cfg.url = "https://script.google.com/macros/s/AKfycbzBX-vPIv-3RSYHJ36RDHlZAG289IGQhlhjeCJqAMWJA2YsumzDrxOQZV6crfIYa6bGNw/exec";
+  cfg.url = "https://script.google.com/macros/s/AKfycbzark_oWXClXEl20Z8vcFtRiFizpgKZqrKJMH4YiWHtnqcDOYexyPLkNVUYVvAeU4KN/exec";
   cfg.name = name;
   cfg.pwd  = pwd;
   saveCfgLocal();
@@ -797,7 +797,7 @@ async function saveSetup() {
 
 async function bootApp() {
   loadCfg();
-  cfg.url = "https://script.google.com/macros/s/AKfycbzBX-vPIv-3RSYHJ36RDHlZAG289IGQhlhjeCJqAMWJA2YsumzDrxOQZV6crfIYa6bGNw/exec";
+  cfg.url = "https://script.google.com/macros/s/AKfycbzark_oWXClXEl20Z8vcFtRiFizpgKZqrKJMH4YiWHtnqcDOYexyPLkNVUYVvAeU4KN/exec";
   saveCfgLocal();
 
   if (!cfg.name || !cfg.pwd) {
